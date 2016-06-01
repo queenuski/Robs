@@ -5,7 +5,6 @@ import threading
 
 import cv2
 
-
 class MyAlgorithm():
 
     def __init__(self, sensor):
@@ -89,21 +88,10 @@ class MyAlgorithm():
         imageLeft = self.sensor.getImageLeft()
         #imageRight = self.sensor.getImageRight()
 
-
-        # Add your code here
-        #print "Runing"
-
-        # #EXAMPLE OF HOW TO SEND INFORMATION TO THE ROBOT ACTUATORS
-        # self.sensor.setV(0)
-        # self.sensor.setW(0.05)
-
         # Filtramos el color rojo de la imagen
         filteredImage = self.colorFilter(imageLeft)
 
         grayNorm = self.img2gray_normalize(filteredImage)
-
-        # cv2.imshow("img", grayNorm)
-
 
         ROI_sup = imageLeft [0:240,:]
         ROI_inf = imageLeft [240:480,:]
@@ -118,60 +106,45 @@ class MyAlgorithm():
         kernel = np.ones((20,20),np.uint8)
         erosion = cv2.erode(ROI_inf_gray,kernel,iterations = 1)
 
-	#cv2.imshow("erosion", erosion)
-	
-	dibujo = erosion.copy()
-	
-	ret,thresh = cv2.threshold(dibujo,127,255,0)
-	
-	#cv2.imshow("thresh", thresh)
-	
-	contours,hierarchy = cv2.findContours(thresh, 1, 2)
-	print type(contours)
- 
-	if contours:
-		print "List is empty"
+        dibujo = erosion.copy()
+        imgFinal = imageLeft.copy()
 
-		cnt = contours[0]
-	
-		M = cv2.moments(cnt)
- 		
- 		if M['m00'] != 0:
- 			print "M['m00']:  ",M['m00']
- 		  
-			cx = int(M['m10']/M['m00'])
-			cy = int(M['m01']/M['m00'])
-	
-			ancho = np.size(dibujo, 0)
-			largo = np.size(dibujo, 0)
+        ret,thresh = cv2.threshold(dibujo,127,255,0)
 
-			imgFinal = imageLeft.copy()
+        contours,hierarchy = cv2.findContours(thresh, 1, 2)
 
-			if (cx > 0 & cx < ancho & cy > 0 & cy < largo):
-				radius = 5
-				color = (0,255,0)
-				cv2.circle(dibujo, (cx,cy), radius, color, -1)
-				cv2.circle(imgFinal, (cx,cy+240), radius, color, -1)
+        # Si detectamos contornos
+        if contours:
+            cnt = contours[0]
 
-			cv2.imshow("dibujo", dibujo)
+            M = cv2.moments(cnt)
 
-			cv2.imshow("imgFinal", imgFinal)
+            # Evitar division por cero
+            if M['m00'] != 0:
 
-        #cv2.imshow("ROI_inf", ROI_inf_gray)
+                cx = int(M['m10']/M['m00'])
+                cy = int(M['m01']/M['m00'])
 
-        
+                print "cx: ", cx, "cy: ", cy
 
-        alto, ancho, _z = imageLeft.shape
+                ancho = np.size(dibujo, 0)
+                largo = np.size(dibujo, 0)
 
-        final = imageLeft
+                if (cx > 0 & cx < ancho & cy > 0 & cy < largo):
+                    radius = 5
+                    color = (0,255,0)
+                    cv2.circle(dibujo, (cx,cy), radius, color, -1)
+                    cv2.circle(imgFinal, (cx,cy+240), radius, color, -1)
 
-	self.sensor.setV(0)
+                    if (cx<160):
+                        print "kk"
+
+
+        cv2.imshow("dibujo", dibujo)
+        cv2.imshow("imgFinal", imgFinal)
+
+        self.sensor.setV(0)
         self.sensor.setW(0.05)
-
-
-
-
-        # cv2.imshow("final", final)
 
         #SHOW THE FILTERED IMAGE ON THE GUI
         self.setRightImageFiltered(imageLeft)
@@ -215,3 +188,80 @@ class MyAlgorithm():
         tempImage=self.imageLeft
         self.lock.release()
         return tempImage
+
+
+
+class PID:
+
+    def __init__(self, P=2.0, I=0.0, D=1.0, Derivator=0, Integrator=0, Integrator_max=500, Integrator_min=-500):
+        self.Kp=P
+        self.Ki=I
+        self.Kd=D
+        self.Derivator=Derivator
+        self.Integrator=Integrator
+        self.Integrator_max=Integrator_max
+        self.Integrator_min=Integrator_min
+
+        self.set_point=0.0
+        self.error=0.0
+
+    def update(self,current_value):
+        """
+		Calculate PID output value for given reference input and feedback
+		"""
+
+        self.error = self.set_point - current_value
+
+        self.P_value = self.Kp * self.error
+        self.D_value = self.Kd * ( self.error - self.Derivator)
+        self.Derivator = self.error
+
+        self.Integrator = self.Integrator + self.error
+
+        if self.Integrator > self.Integrator_max:
+            self.Integrator = self.Integrator_max
+
+        elif self.Integrator < self.Integrator_min:
+            self.Integrator = self.Integrator_min
+
+        self.I_value = self.Integrator * self.Ki
+
+        PID = self.P_value + self.I_value + self.D_value
+
+        return PID
+
+    def setPoint(self,set_point):
+        """
+		Initilize the setpoint of PID
+		"""
+
+        self.set_point = set_point
+        self.Integrator=0
+        self.Derivator=0
+
+    def setIntegrator(self, Integrator):
+        self.Integrator = Integrator
+
+    def setDerivator(self, Derivator):
+        self.Derivator = Derivator
+
+    def setKp(self,P):
+        self.Kp=P
+
+    def setKi(self,I):
+        self.Ki=I
+
+    def setKd(self,D):
+        self.Kd=D
+
+    def getPoint(self):
+        return self.set_point
+
+    def getError(self):
+        return self.error
+
+    def getIntegrator(self):
+        return self.Integrator
+
+    def getDerivator(self):
+        return self.Derivator
