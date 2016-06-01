@@ -2,6 +2,7 @@
 from sensors import sensor
 import numpy as np
 import threading
+import math
 
 import cv2
 
@@ -136,7 +137,9 @@ class MyAlgorithm():
 #
 #        cv2.imshow(name, dibujo)
         name2 = name + "_cp"
-        cv2.imshow(name2, imgFinal)
+        
+        # Muestra las secciones de la imagen con los centroides
+        # cv2.imshow(name2, imgFinal)
         
         return centroid
 #
@@ -162,91 +165,94 @@ class MyAlgorithm():
         section_4_c = self.obtainCentroid (section_4, "section_4")
         
         radius = 5
-        color = (0,255,0)
+        green_color  = (0,255,0)
+        red_color    = (0,0,255)
+        blue_color   = (255,0,0)
+        yellow_color = (0,255,255)
         
+        centroid_1 = np.array ([-1, -1])
+        centroid_2 = np.array ([-1, -1])
+        centroid_3 = np.array ([-1, -1])
+        centroid_4 = np.array ([-1, -1])
         if (section_1_c[0] != -1):       
-            cv2.circle(section_1, (section_1_c[0],section_1_c[1]), radius, color, -1)  
+            cv2.circle(section_1, (section_1_c[0],section_1_c[1]), radius, green_color, -1)
+            # Calculamos la posicion de los centroides en la imagen real
+            cx = section_1_c[0]
+            cy = section_1_c[1] + 180
+            centroid_1 = np.array ([cx, cy])
+    
         if (section_2_c[0] != -1):           
-            cv2.circle(section_2, (section_2_c[0],section_2_c[1]), radius, color, -1)  
+            cv2.circle(section_2, (section_2_c[0],section_2_c[1]), radius, red_color, -1)
+            # Calculamos la posicion de los centroides en la imagen real
+            cx = section_2_c[0]
+            cy = section_2_c[1] + 120
+            centroid_2 = np.array ([cx, cy])
         if (section_3_c[0] != -1):          
-            cv2.circle(section_3, (section_3_c[0],section_3_c[1]), radius, color, -1)  
+            cv2.circle(section_3, (section_3_c[0],section_3_c[1]), radius, blue_color, -1)
+            # Calculamos la posicion de los centroides en la imagen real
+            cx = section_3_c[0]
+            cy = section_3_c[1] + 60
+            centroid_3 = np.array ([cx, cy])
         if (section_4_c[0] != -1):         
-            cv2.circle(section_4, (section_4_c[0],section_4_c[1]), radius, color, -1)  
+            cv2.circle(section_4, (section_4_c[0],section_4_c[1]), radius, yellow_color, -1)
+            # Calculamos la posicion de los centroides en la imagen real
+            centroid_4 = section_4_c
+            
         
         new_img = np.concatenate((section_4, section_3), axis=0) 
         new_img = np.concatenate((new_img, section_2), axis=0)
         new_img = np.concatenate((new_img, section_1), axis=0)
         
-        #image2.copyTo(new_img);        
+        
+        #print "centroid_1", centroid_1, "centroid_2", centroid_2
+        #print "centroid_3", centroid_3, "centroid_4", centroid_4
+        
+        if ((centroid_1[0] == -1) | (centroid_2[0] == -1) | (centroid_3[0] == -1)):
+            ang_dif = -1
+        elif ((centroid_1[0]==centroid_2[0]) | (centroid_1[0]==centroid_3[0])):
+            aux12 = (centroid_1[0]-centroid_2[0])/float(centroid_1[1]-centroid_2[1])
+            aux13 = (centroid_1[0]-centroid_3[0])/float(centroid_1[1]-centroid_3[1])
+            
+            ang_12 = math.degrees(math.atan(aux12))
+            ang_13 = math.degrees(math.atan(aux13))
+            
+            # Si el ang_13 > ang_12 el giro es positivo (izquierda)
+            ang_dif = ang_13 - ang_12
+            
+            #print "aux12", aux12, "ang_12", ang_12, "aux13", aux13, "ang_13", ang_13
+            
+        print "centroid_1", centroid_1[0]
+        if (centroid_1[0] == -1):
+            self.sensor.setV(0.0)
+            self.sensor.setW(-0.03)
+        elif ((centroid_1[0]>380) & (centroid_1[0]<420)):
+            self.sensor.setV(0.2)
+            self.sensor.setW(0.0)
+        elif (centroid_1[0]<380):
+            self.sensor.setV(0.005)
+            self.sensor.setW(0.03)
+        elif (centroid_1[0]>420):
+            self.sensor.setV(0.005)
+            self.sensor.setW(-0.03)
+        else:
+            self.sensor.setV(0.0)
+            self.sensor.setW(-0.03)
         
         cv2.imshow ("prueba", new_img)
         
-        self.countTime = self.countTime + 1
-        print "countTime: ", self.countTime
+        self.countTime = self.countTime + 1        
         
-        if (self.countTime < 50):
-            self.sensor.setV(0)
-            self.sensor.setW(0.05)
-        else:
-            self.sensor.setW(0.0)
+#==============================================================================
+#         print "countTime: ", self.countTime
+#         
+#         #Damos una vuelta 
+#         if (self.countTime < 180):
+#             self.sensor.setV(0)
+#             self.sensor.setW(0.0)
+#         else:
+#             self.sensor.setW(0.0)
+#==============================================================================
         
-##############################################################################
-#        ROI_inf_gray = self.colorFilter(ROI_inf)
-#
-#        ROI_inf_gray = self.img2gray_normalize(ROI_inf_gray)
-#
-#        #ROI_inf_izq = imageLeft [240:480,0:320]
-#        #ROI_inf_dcha = imageLeft [240:480,320:640]
-#
-#        kernel = np.ones((20,20),np.uint8)
-#        erosion = cv2.erode(ROI_inf_gray,kernel,iterations = 1)
-#
-#        dibujo = erosion.copy()
-#        imgFinal = imageLeft.copy()
-#
-#        ret,thresh = cv2.threshold(dibujo,127,255,0)
-#
-#        contours,hierarchy = cv2.findContours(thresh, 1, 2)
-#	
-#        stop = 0
-#        # Si detectamos contornos
-#        if contours:
-#            cnt = contours[0]
-#
-#            M = cv2.moments(cnt)
-#
-#            # Evitar division por cero
-#            if M['m00'] != 0:
-#
-#                cx = int(M['m10']/M['m00'])
-#                cy = int(M['m01']/M['m00'])
-#
-#                print "cx: ", cx, "cy: ", cy
-#
-#                ancho = np.size(dibujo, 1)
-#                largo = np.size(dibujo, 0)
-#                
-#                print "ancho: ", ancho, "largo: ", largo
-#
-#                if (cx > 0 & cx < ancho & cy > 0 & cy < largo):
-#                    radius = 5
-#                    color = (0,255,0)
-#                    cv2.circle(dibujo, (cx,cy), radius, color, -1)
-#                    cv2.circle(imgFinal, (cx,cy+240), radius, color, -1)
-#
-#                    if (cx>300 & cx<340):
-#                        print "estoy", "cx: ", cx
-#                        stop = 1
-#                    else:
-#                        stop = 0
-#
-#        cv2.imshow("dibujo", dibujo)
-#        cv2.imshow("imgFinal", imgFinal)
-#
-#        self.sensor.setV(0)
-#        self.sensor.setW(0.05)
-##############################################################################
-	
 #        if (stop == 1):
 #            self.sensor.setW(0.0)
 #        else:
