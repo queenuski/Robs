@@ -13,6 +13,7 @@ class MyAlgorithm():
         self.imageLeft=None
         self.lock = threading.Lock()
         self.count = 0
+        self.countTime = 0
 
     def cosa():
         px_dcha = 0
@@ -99,6 +100,7 @@ class MyAlgorithm():
         contours,hierarchy = cv2.findContours(thresh, 1, 2)
 	
         stop = 0
+        centroid = np.array ([-1, -1])
         # Si detectamos contornos
         if contours:
             cnt = contours[0]
@@ -113,28 +115,33 @@ class MyAlgorithm():
                 ancho = np.size(dibujo, 1)
                 largo = np.size(dibujo, 0)
                 
-                print "ancho: ", ancho, "largo: ", largo
-                print "cx: ", cx, "cy: ", cy
+                #print "ancho: ", ancho, "largo: ", largo
+                #print "cx: ", cx, "cy: ", cy
 
                 if (cx>0 & cx<ancho):   
                     if (cy>0 & cy<largo):
                         radius = 5
                         color = (0,255,0)
-                        cv2.circle(dibujo, (cx,cy), radius, color, -1)
+#                        cv2.circle(dibujo, (cx,cy), radius, color, -1)
                         cv2.circle(imgFinal, (cx,cy), radius, color, -1)
+                        centroid = np.array ([cx, cy])
+                else:
+                    centroid = np.array ([-1, -1])
     
-                        if (cx>300 & cx<340):
-                            print "estoy", "cx: ", cx
-                            stop = 1
-                        else:
-                            stop = 0
-
-        cv2.imshow(name, dibujo)
+#                        if (cx>300 & cx<340):
+#                            print "estoy", "cx: ", cx
+#                            stop = 1
+#                        else:
+#                            stop = 0
+#
+#        cv2.imshow(name, dibujo)
         name2 = name + "_cp"
         cv2.imshow(name2, imgFinal)
-
-        self.sensor.setV(0)
-        self.sensor.setW(0.05)
+        
+        return centroid
+#
+#        self.sensor.setV(0)
+#        self.sensor.setW(0.05)
     
     def execute(self):
         #GETTING THE IMAGES
@@ -144,24 +151,27 @@ class MyAlgorithm():
         # Filtramos el color rojo de la imagen
         filteredImage = self.colorFilter(imageLeft)
 
-        #grayNorm = self.img2gray_normalize(filteredImage)
-
-        #ROI_sup = imageLeft [0:240,:]
-        #ROI_inf = imageLeft [240:480,:]
-
         section_1 = imageLeft [420:480,:]
         section_2 = imageLeft [360:420,:]
         section_3 = imageLeft [300:360,:]
         section_4 = imageLeft [240:300,:]
         
-        #self.obtainCentroid (section_1, "section_1")
-        self.obtainCentroid (section_2, "section_2")
-        #self.obtainCentroid (section_3, "section_3")
-        #self.obtainCentroid (section_4, "section_4")
+        section_1_c = self.obtainCentroid (section_1, "section_1")
+        section_2_c = self.obtainCentroid (section_2, "section_2")
+        section_3_c = self.obtainCentroid (section_3, "section_3")
+        section_4_c = self.obtainCentroid (section_4, "section_4")
         
-        #new_img = cv2.add(section_1, section_2)
+        radius = 5
+        color = (0,255,0)
         
-        #new_img(section_1,cv::Rect(0,0,section_1.cols,section_1.rows*2))
+        if (section_1_c[0] != -1):       
+            cv2.circle(section_1, (section_1_c[0],section_1_c[1]), radius, color, -1)  
+        if (section_2_c[0] != -1):           
+            cv2.circle(section_2, (section_2_c[0],section_2_c[1]), radius, color, -1)  
+        if (section_3_c[0] != -1):          
+            cv2.circle(section_3, (section_3_c[0],section_3_c[1]), radius, color, -1)  
+        if (section_4_c[0] != -1):         
+            cv2.circle(section_4, (section_4_c[0],section_4_c[1]), radius, color, -1)  
         
         new_img = np.concatenate((section_4, section_3), axis=0) 
         new_img = np.concatenate((new_img, section_2), axis=0)
@@ -170,6 +180,15 @@ class MyAlgorithm():
         #image2.copyTo(new_img);        
         
         cv2.imshow ("prueba", new_img)
+        
+        self.countTime = self.countTime + 1
+        print "countTime: ", self.countTime
+        
+        if (self.countTime < 50):
+            self.sensor.setV(0)
+            self.sensor.setW(0.05)
+        else:
+            self.sensor.setW(0.0)
         
 ##############################################################################
 #        ROI_inf_gray = self.colorFilter(ROI_inf)
